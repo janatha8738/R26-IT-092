@@ -479,6 +479,10 @@
     </div>
   </div>
   <div class="header-right">
+    <nav class="nav-links" style="display:flex; gap:20px; margin-right:20px;">
+      <a href="/" style="text-decoration:none; font-size:0.8rem; font-weight:600; color:var(--accent); font-family:var(--font-mono); letter-spacing:0.05em; text-transform:uppercase;">Dashboard</a>
+      <a href="/fault-detection" style="text-decoration:none; font-size:0.8rem; font-weight:600; color:var(--muted); font-family:var(--font-mono); letter-spacing:0.05em; text-transform:uppercase; transition:color 0.3s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">Fault Detection</a>
+    </nav>
     <div class="status-pill">
       <div class="status-dot" id="statusDot"></div>
       <span id="statusText">STOPPED</span>
