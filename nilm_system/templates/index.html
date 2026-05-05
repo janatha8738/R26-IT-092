@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NILM Smart Energy Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:        #080c12;
+    --surface:   #0e1520;
+    --surface2:  #141d2b;
+    --border:    #1e2d42;
+    --text:      #e2eaf6;
+    --muted:     #4a6080;
+    --accent:    #38bdf8;
+    --green:     #4ade80;
+    --red:       #f87171;
+    --orange:    #fb923c;
+    --yellow:    #facc15;
+    --font-mono: 'Space Mono', monospace;
+    --font-main: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-main);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(8,12,18,0.9);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .logo h1 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  .logo span {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    display: block;
+    margin-top: 1px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: all 0.3s;
+  }
+
+  .status-dot.live { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+  .status-dot.stopped { background: var(--red); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .btn {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: #7dd3fc; transform: translateY(-1px); }
+  .btn-danger  { background: transparent; color: var(--red); border: 1px solid var(--red); }
+  .btn-danger:hover { background: rgba(248,113,113,0.1); }
+  .btn-ghost   { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+
+  /* ── MAIN LAYOUT ── */
+  main {
+    position: relative;
+    z-index: 1;
+    padding: 24px 32px;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    grid-template-rows: auto auto 1fr;
+    gap: 20px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.6;
+  }
+
+  .stat-card:nth-child(2)::before { background: var(--green); }
+  .stat-card:nth-child(3)::before { background: var(--orange); }
+  .stat-card:nth-child(4)::before { background: var(--yellow); }
+  .stat-card:nth-child(5)::before { background: var(--green); }
+
+  .stat-label {
+    font-size: 0.68rem;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-size: 1.9rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  .stat-unit {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-left: 4px;
+    font-family: var(--font-mono);
+  }
+
+  .stat-sub {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 6px;
+    font-family: var(--font-mono);
+  }
+
+  /* ── APPLIANCE GRID ── */
+  .appliances-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .section-title {
+    font-size: 0.7rem;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .appliance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+  }
+
+  .appliance-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .appliance-card.on {
+    border-color: var(--card-color, var(--accent));
+    box-shadow: 0 0 20px color-mix(in srgb, var(--card-color, var(--accent)) 15%, transparent);
+  }
+
+  .appliance-card.off { opacity: 0.55; }
+
+  .appliance-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--card-color, var(--accent));
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .appliance-card.on::after { opacity: 1; }
+
+  .card-icon {
+    font-size: 1.6rem;
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .card-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+    text-transform: capitalize;
+  }
+
+  .card-status {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+  }
+
+  .card-status.on-text { color: var(--card-color, var(--green)); }
+
+  .card-power {
+    font-family: var(--font-mono);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .card-power span { font-size: 0.65rem; color: var(--muted); }
+
+  .power-bar {
+    margin-top: 10px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .power-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--card-color, var(--accent));
+    transition: width 0.5s ease;
+  }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    grid-row: 2 / 4;
+  }
+
+  .panel-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-title {
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .badge {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+  }
+
+  .badge-red   { background: rgba(248,113,113,0.15); color: var(--red); }
+  .badge-green { background: rgba(74,222,128,0.15); color: var(--green); }
+
+  /* ── FAULT LIST ── */
+  .fault-list { padding: 8px; max-height: 260px; overflow-y: auto; }
+
+  .fault-item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    animation: slideIn 0.3s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .fault-item.critical { background: rgba(248,113,113,0.1); border-left: 3px solid var(--red); }
+  .fault-item.warning  { background: rgba(251,146,60,0.1);  border-left: 3px solid var(--orange); }
+
+  .fault-type {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+
+  .fault-item.critical .fault-type { color: var(--red); }
+  .fault-item.warning  .fault-type { color: var(--orange); }
+
+  .fault-msg  { font-size: 0.75rem; color: var(--text); }
+  .fault-time { font-family: var(--font-mono); font-size: 0.6rem; color: var(--muted); }
+
+  .no-faults {
+    text-align: center;
+    padding: 30px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+  }
+
+  /* ── ENERGY TABLE ── */
+  .energy-table { width: 100%; }
+
+  .energy-table tr {
+    display: flex;
+    align-items: center;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+  }
+
+  .energy-table tr:last-child { border-bottom: none; }
+
+  .energy-table .e-icon { font-size: 1rem; width: 24px; text-align: center; }
+  .energy-table .e-name { flex: 1; font-size: 0.78rem; text-transform: capitalize; }
+  .energy-table .e-kwh  { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); }
+
+  /* ── CHART ── */
+  .chart-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  .chart-wrap { position: relative; height: 200px; margin-top: 14px; }
+
+  /* ── CSV LOADER ── */
+  .csv-loader {
+    background: var(--surface2);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .csv-loader input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    outline: none;
+  }
+
+  .csv-loader input:focus { border-color: var(--accent); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <div>
+      <h1>NILM Energy Monitor</h1>
+      <span>Member 1: Appliance ID &nbsp;|&nbsp; Member 3: Fault Detection</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-pill">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">STOPPED</span>
+    </div>
+    <button class="btn btn-primary" id="btnStart" onclick="control('start')">▶ START</button>
+    <button class="btn btn-danger"  id="btnStop"  onclick="control('stop')">■ STOP</button>
+    <button class="btn btn-ghost"               onclick="control('reset')">↺ RESET</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- CSV LOADER -->
+  <div class="csv-loader">
+    <span style="font-family:var(--font-mono);font-size:0.72rem;color:var(--muted);white-space:nowrap">📂 CSV PATH</span>
+    <input type="text" id="csvPath" value="./data/house.csv" placeholder="./data/CLEAN_House1.csv">
+    <button class="btn btn-ghost" onclick="loadCSV()">LOAD</button>
+    <span id="csvStatus" style="font-family:var(--font-mono);font-size:0.7rem;color:var(--muted)"></span>
+  </div>
+
+  <!-- STATS ROW -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Load</div>
+      <div class="stat-value" id="statAggregate">0<span class="stat-unit">W</span></div>
+      <div class="stat-sub" id="statAggSub">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active Appliances</div>
+      <div class="stat-value" id="statActive">0</div>
+      <div class="stat-sub" id="statActiveSub">of 8 monitored</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Energy</div>
+      <div class="stat-value" id="statKwh">0.00<span class="stat-unit">kWh</span></div>
+      <div class="stat-sub" id="statKwhSub">session total</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Fault Alerts</div>
+      <div class="stat-value" id="statFaults">0</div>
+      <div class="stat-sub" id="statFaultSub">no issues detected</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Sim Time Elapsed</div>
+      <div class="stat-value" id="statElapsed">0<span class="stat-unit">min</span></div>
+      <div class="stat-sub" id="statElapsedSub">simulation not started</div>
+    </div>
+  </div>
+
+  <!-- APPLIANCE GRID + CHART -->
+  <div class="appliances-section">
+    <div class="section-title">Appliance Status — Member 1 (NILM)</div>
+    <div class="appliance-grid" id="applianceGrid"></div>
+
+    <div class="chart-section">
+      <div class="section-title">Aggregate Power — Last 60 Minutes</div>
+      <div class="chart-wrap">
+        <canvas id="powerChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+
+    <!-- FAULT ALERTS -->
+    <div class="panel-card">
+      <div class="panel-header">
+        <span class="panel-title">⚠ Fault Detection — Member 3</span>
+        <span class="badge badge-green" id="faultBadge">ALL CLEAR</span>
+      </div>
+      <div class="fault-list" id="faultList">
+        <div class="no-faults">No faults detected</div>
+      </div>
+    </div>
+
+    <!-- ENERGY USAGE -->
+    <div class="panel-card">
+      <div class="panel-header">
+        <span class="panel-title">⚡ Energy Usage (kWh)</span>
+      </div>
+      <table class="energy-table" id="energyTable"></table>
+    </div>
+
+  </div>
+
+</main>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+let chart = null;
+let prevAggregate = 0;
+let faultCount = 0;
+
+const APPLIANCE_COLORS = {
+  fridge: '#38bdf8', freezer: '#818cf8', fridge_freezer: '#6ee7b7',
+  washing_machine: '#fb923c', dishwasher: '#f472b6',
+  microwave: '#facc15', kettle: '#f87171', television: '#a78bfa',
+};
+
+const APPLIANCE_ICONS = {
+  fridge: '🧊', freezer: '❄️', fridge_freezer: '🧊',
+  washing_machine: '🫧', dishwasher: '🍽️',
+  microwave: '📡', kettle: '☕', television: '📺',
+};
+
+// ── CHART SETUP ────────────────────────────────────────────────────────────
+function initChart() {
+  const ctx = document.getElementById('powerChart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Aggregate (W)',
+        data: [],
+        borderColor: '#38bdf8',
+        backgroundColor: 'rgba(56,189,248,0.08)',
+        borderWidth: 1.5,
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 300 },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: 'rgba(30,45,66,0.8)' }, ticks: { color: '#4a6080', font: { family: 'Space Mono', size: 10 }, maxTicksLimit: 8 } },
+        y: { grid: { color: 'rgba(30,45,66,0.8)' }, ticks: { color: '#4a6080', font: { family: 'Space Mono', size: 10 } }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+// ── UPDATE APPLIANCE CARDS ─────────────────────────────────────────────────
+function updateAppliances(appliances) {
+  const grid = document.getElementById('applianceGrid');
+  let activeCount = 0;
+
+  for (const [name, data] of Object.entries(appliances)) {
+    const on     = data.status;
+    const power  = data.power || 0;
+    const color  = APPLIANCE_COLORS[name] || '#38bdf8';
+    const icon   = APPLIANCE_ICONS[name] || '🔌';
+    const maxPw  = { fridge:400, freezer:400, fridge_freezer:400, washing_machine:2500, dishwasher:2500, microwave:3000, kettle:3100, television:400 }[name] || 1000;
+    const pct    = Math.min((power / maxPw) * 100, 100).toFixed(0);
+    const label  = name.replace(/_/g, ' ');
+    if (on) activeCount++;
+
+    let card = document.getElementById(`card-${name}`);
+    if (!card) {
+      card = document.createElement('div');
+      card.id = `card-${name}`;
+      card.className = 'appliance-card';
+      card.style.setProperty('--card-color', color);
+      card.innerHTML = `
+        <span class="card-icon">${icon}</span>
+        <div class="card-name">${label}</div>
+        <div class="card-status" id="cs-${name}">OFF</div>
+        <div class="card-power" id="cp-${name}">0 <span>W</span></div>
+        <div class="power-bar"><div class="power-bar-fill" id="cb-${name}" style="width:0%"></div></div>
+      `;
+      grid.appendChild(card);
+    }
+
+    card.className = `appliance-card ${on ? 'on' : 'off'}`;
+    document.getElementById(`cs-${name}`).textContent = on ? 'ON' : 'OFF';
+    document.getElementById(`cs-${name}`).className = `card-status ${on ? 'on-text' : ''}`;
+    document.getElementById(`cp-${name}`).innerHTML = `${power.toFixed(0)} <span>W</span>`;
+    document.getElementById(`cb-${name}`).style.width = `${pct}%`;
+  }
+
+  document.getElementById('statActive').textContent = activeCount;
+}
+
+// ── UPDATE FAULTS ──────────────────────────────────────────────────────────
+function updateFaults(faults) {
+  const list  = document.getElementById('faultList');
+  const badge = document.getElementById('faultBadge');
+
+  if (!faults || faults.length === 0) {
+    list.innerHTML = '<div class="no-faults">✓ No faults detected</div>';
+    badge.textContent = 'ALL CLEAR';
+    badge.className = 'badge badge-green';
+    document.getElementById('statFaults').textContent = '0';
+    document.getElementById('statFaultSub').textContent = 'no issues detected';
+    return;
+  }
+
+  faultCount = faults.length;
+  badge.textContent = `${faultCount} ALERT${faultCount > 1 ? 'S' : ''}`;
+  badge.className = 'badge badge-red';
+  document.getElementById('statFaults').textContent = faultCount;
+  document.getElementById('statFaultSub').textContent = 'check fault panel';
+
+  list.innerHTML = faults.map(f => `
+    <div class="fault-item ${f.severity}">
+      <span class="fault-type">${f.type}</span>
+      <span class="fault-msg">${f.msg}</span>
+      <span class="fault-time">${f.time}</span>
+    </div>
+  `).join('');
+}
+
+// ── UPDATE ENERGY TABLE ────────────────────────────────────────────────────
+function updateEnergy(kwh, appliances) {
+  const table = document.getElementById('energyTable');
+  const totalKwh = Object.values(kwh).reduce((a, b) => a + b, 0);
+  document.getElementById('statKwh').innerHTML = `${totalKwh.toFixed(3)}<span class="stat-unit">kWh</span>`;
+
+  table.innerHTML = Object.entries(kwh)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, val]) => `
+      <tr>
+        <td class="e-icon">${APPLIANCE_ICONS[name] || '🔌'}</td>
+        <td class="e-name">${name.replace(/_/g, ' ')}</td>
+        <td class="e-kwh">${val.toFixed(4)} kWh</td>
+      </tr>
+    `).join('');
+}
+
+// ── UPDATE CHART ───────────────────────────────────────────────────────────
+function updateChart(history) {
+  if (!chart || !history.length) return;
+  const last60 = history.slice(-60);
+  chart.data.labels = last60.map(h => h.time);
+  chart.data.datasets[0].data = last60.map(h => h.aggregate);
+  chart.update('none');
+
+  const agg = last60[last60.length - 1]?.aggregate || 0;
+  document.getElementById('statAggregate').innerHTML = `${agg.toFixed(0)}<span class="stat-unit">W</span>`;
+  document.getElementById('statAggSub').textContent = `${(agg / 1000).toFixed(2)} kW`;
+}
+
+// ── UPDATE STATUS ──────────────────────────────────────────────────────────
+function updateStatus(running) {
+  const dot  = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  if (running) {
+    dot.className = 'status-dot live';
+    text.textContent = 'LIVE';
+  } else {
+    dot.className = 'status-dot stopped';
+    text.textContent = 'STOPPED';
+  }
+}
+
+// ── POLL API ───────────────────────────────────────────────────────────────
+async function poll() {
+  try {
+    const [status, history] = await Promise.all([
+      fetch('/api/status').then(r => r.json()),
+      fetch('/api/history').then(r => r.json()),
+    ]);
+    updateAppliances(status.appliances);
+    updateFaults(status.faults);
+    updateEnergy(status.total_kwh, status.appliances);
+    updateChart(history);
+    updateStatus(status.running);
+    updateElapsed(status.sim_minutes, status.sim_start);
+  } catch (e) {
+    console.error('Poll error:', e);
+  }
+}
+
+// ── CONTROLS ───────────────────────────────────────────────────────────────
+async function control(action) {
+  await fetch('/api/control', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action })
+  });
+  poll();
+}
+
+async function loadCSV() {
+  const path = document.getElementById('csvPath').value.trim();
+  const statusEl = document.getElementById('csvStatus');
+  statusEl.textContent = 'Loading...';
+  statusEl.style.color = 'var(--muted)';
+  try {
+    const res = await fetch('/api/load_csv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path })
+    }).then(r => r.json());
+    if (res.ok) {
+      statusEl.textContent = `✓ ${res.rows.toLocaleString()} rows loaded`;
+      statusEl.style.color = 'var(--green)';
+    } else {
+      statusEl.textContent = `✗ ${res.error}`;
+      statusEl.style.color = 'var(--red)';
+    }
+  } catch (e) {
+    statusEl.textContent = '✗ Server error';
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
+// ── ELAPSED TIME ──────────────────────────────────────────────────────────
+function updateElapsed(minutes, startLabel) {
+  const el    = document.getElementById('statElapsed');
+  const sub   = document.getElementById('statElapsedSub');
+  if (!minutes || minutes === 0) {
+    el.innerHTML  = '0<span class="stat-unit">min</span>';
+    sub.textContent = 'simulation not started';
+    return;
+  }
+  const h   = Math.floor(minutes / 60);
+  const m   = minutes % 60;
+  const hStr = h > 0 ? `${h}h ` : '';
+  el.innerHTML  = `${hStr}${m}<span class="stat-unit">min</span>`;
+  sub.textContent = startLabel ? `started at ${startLabel}` : `${minutes} minutes simulated`;
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+initChart();
+poll();
+setInterval(poll, 1500);
+</script>
+</body>
+</html>
