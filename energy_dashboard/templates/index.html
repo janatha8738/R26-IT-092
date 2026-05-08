@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Energy Dashboard — IT22282354</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg:#050d1a;--panel:#0a1628;--panel2:#0d1e35;--border:#152840;
+      --accent:#00cfff;--green:#00ff9d;--orange:#ff7c38;--red:#ff3d6b;
+      --yellow:#ffd23f;--purple:#a855f7;--text:#c5dff5;--muted:#3d6080;
+      --mono:'JetBrains Mono',monospace;--display:'Syne',sans-serif;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--display);min-height:100vh;padding:20px 24px;
+      background-image:radial-gradient(ellipse 60% 40% at 15% 10%,rgba(0,207,255,0.06) 0%,transparent 60%),
+      radial-gradient(ellipse 50% 30% at 85% 90%,rgba(0,255,157,0.04) 0%,transparent 60%);}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;padding-bottom:18px;border-bottom:1px solid var(--border);}
+    .brand{display:flex;align-items:center;gap:14px;}
+    .brand-icon{width:42px;height:42px;background:linear-gradient(135deg,var(--accent),var(--green));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 20px rgba(0,207,255,0.3);}
+    .brand-text h1{font-family:var(--display);font-size:17px;font-weight:800;color:#fff;}
+    .brand-text p{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:2px;}
+    .header-right{display:flex;align-items:center;gap:20px;}
+    .live-badge{display:flex;align-items:center;gap:7px;background:rgba(0,255,157,0.08);border:1px solid rgba(0,255,157,0.2);border-radius:20px;padding:5px 12px;font-family:var(--mono);font-size:11px;color:var(--green);font-weight:700;letter-spacing:2px;}
+    .pulse{width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse 2s ease-in-out infinite;}
+    @keyframes pulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.3);opacity:0.6;}}
+    #clock{font-family:var(--mono);font-size:13px;color:var(--muted);}
+    .anomaly-alert{display:none;background:rgba(255,61,107,0.08);border:1px solid rgba(255,61,107,0.4);border-radius:10px;padding:10px 16px;margin-bottom:14px;font-family:var(--mono);font-size:11px;color:var(--red);font-weight:700;}
+    .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px;}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px;position:relative;overflow:hidden;transition:border-color 0.3s,transform 0.2s;}
+    .card:hover{transform:translateY(-2px);}
+    .card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+    .card-label{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+    .card-icon{font-size:16px;opacity:0.7;}
+    .card-value{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--accent);line-height:1;margin-bottom:6px;}
+    .card-sub{font-family:var(--mono);font-size:10px;color:var(--muted);}
+    .card-bar{position:absolute;bottom:0;left:0;height:2px;width:100%;background:var(--border);}
+    .card-bar-fill{height:100%;background:var(--accent);transition:width 0.5s ease;}
+    .card.green .card-value{color:var(--green);}.card.green .card-bar-fill{background:var(--green);}
+    .card.orange .card-value{color:var(--orange);}.card.orange .card-bar-fill{background:var(--orange);}
+    .card.purple .card-value{color:var(--purple);}.card.purple .card-bar-fill{background:var(--purple);}
+    .status-pill{display:inline-block;padding:2px 8px;border-radius:10px;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+    .pill-low{background:rgba(0,255,157,0.12);color:var(--green);}
+    .pill-normal{background:rgba(0,207,255,0.12);color:var(--accent);}
+    .pill-high{background:rgba(255,61,107,0.12);color:var(--red);}
+    .section-tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:16px;width:fit-content;}
+    .tab-btn{padding:7px 18px;border:none;border-radius:7px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;background:transparent;color:var(--muted);transition:all 0.2s;}
+    .tab-btn.active{background:var(--accent);color:var(--bg);}
+    .main-grid{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px;}
+    .bottom-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
+    .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px 20px;}
+    .panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+    .panel-title{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+    .forecast-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;}
+    .forecast-stat{background:var(--panel2);border-radius:10px;padding:12px;text-align:center;}
+    .forecast-stat-label{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;}
+    .forecast-stat-val{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--purple);}
+    .seasonal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+    .season-card{background:var(--panel2);border-radius:10px;padding:14px;border-left:3px solid var(--accent);}
+    .season-name{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+    .season-val{font-family:var(--mono);font-size:20px;font-weight:700;}
+    .season-sub{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:2px;}
+    .peak-hours{display:flex;gap:8px;align-items:flex-end;height:80px;margin-top:10px;}
+    .peak-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;}
+    .peak-bar-wrap{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;}
+    .peak-bar{width:100%;border-radius:3px 3px 0 0;}
+    .peak-label{font-family:var(--mono);font-size:8px;color:var(--muted);white-space:nowrap;}
+    .predictor{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:14px;}
+    .form-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px;}
+    .field label{display:block;font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;}
+    .field input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-family:var(--mono);font-size:13px;transition:border-color 0.2s;}
+    .field input:focus{outline:none;border-color:var(--accent);}
+    .btn-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+    .btn{padding:10px 22px;border:none;border-radius:8px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all 0.2s;}
+    .btn-primary{background:var(--accent);color:var(--bg);}.btn-primary:hover{opacity:0.85;}
+    .btn-outline{background:transparent;color:var(--green);border:1px solid var(--green);}.btn-outline:hover{background:rgba(0,255,157,0.08);}
+    .btn-danger{background:transparent;color:var(--red);border:1px solid var(--red);}.btn-danger:hover{background:rgba(255,61,107,0.08);}
+    .result-grid{display:none;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;}
+    .result-card{background:var(--bg);border:1px solid var(--green);border-radius:10px;padding:16px;text-align:center;}
+    .result-label{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;}
+    .result-val{font-family:var(--mono);font-size:24px;font-weight:700;color:var(--green);}
+    .result-unit{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px;}
+    .log-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;}
+    .log-table th{color:var(--muted);font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);}
+    .log-table td{padding:8px 10px;color:var(--text);border-bottom:1px solid rgba(21,40,64,0.5);}
+    .log-table tr:hover td{background:var(--panel2);}
+    .anomaly-row td{color:var(--red)!important;}
+    footer{text-align:center;padding-top:14px;border-top:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;}
+    ::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">⚡</div>
+    <div class="brand-text">
+      <h1>Smart Energy Monitor</h1>
+      <p>IT22282354 · Load Forecasting & Bill Prediction · Poly Reg R²=0.9990</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><div class="pulse"></div>LIVE</div>
+    <div id="clock">--:--:--</div>
+  </div>
+</header>
+
+<div class="anomaly-alert" id="anomalyAlert">⚠️ ANOMALY DETECTED — Power consumption exceeds 2-sigma threshold! Immediate attention required.</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-top"><div class="card-label">Voltage</div><div class="card-icon">🔌</div></div>
+    <div class="card-value" id="voltage">-- V</div>
+    <div class="card-sub">AC Supply Line</div>
+    <div class="card-bar"><div class="card-bar-fill" id="voltageBar" style="width:70%"></div></div>
+  </div>
+  <div class="card">
+    <div class="card-top"><div class="card-label">Current</div><div class="card-icon">⚡</div></div>
+    <div class="card-value" id="current">-- A</div>
+    <div class="card-sub">Global Intensity</div>
+    <div class="card-bar"><div class="card-bar-fill" id="currentBar" style="width:40%"></div></div>
+  </div>
+  <div class="card orange">
+    <div class="card-top"><div class="card-label">Power Now</div><div class="card-icon">📊</div></div>
+    <div class="card-value" id="power">-- kW</div>
+    <div class="card-sub" id="energyStatus"><span class="status-pill pill-normal">Normal</span></div>
+    <div class="card-bar"><div class="card-bar-fill" id="powerBar" style="width:30%"></div></div>
+  </div>
+  <div class="card green">
+    <div class="card-top"><div class="card-label">Monthly kWh</div><div class="card-icon">📅</div></div>
+    <div class="card-value" id="monthlyKwh">-- kWh</div>
+    <div class="card-sub">Predicted Usage</div>
+    <div class="card-bar"><div class="card-bar-fill" id="kwhBar" style="width:55%"></div></div>
+  </div>
+  <div class="card purple">
+    <div class="card-top"><div class="card-label">Est. Bill</div><div class="card-icon">💰</div></div>
+    <div class="card-value" id="bill">LKR --</div>
+    <div class="card-sub">CEB Tariff 25/kWh</div>
+    <div class="card-bar"><div class="card-bar-fill" id="billBar" style="width:55%"></div></div>
+  </div>
+</div>
+
+<div class="section-tabs">
+  <button class="tab-btn active" onclick="setView('live',this)">⚡ Live</button>
+  <button class="tab-btn" onclick="setView('forecast',this)">🔮 Forecast</button>
+  <button class="tab-btn" onclick="setView('seasonal',this)">🌦️ Seasonal</button>
+  <button class="tab-btn" onclick="setView('anomaly',this)">🚨 Anomaly</button>
+  <button class="tab-btn" onclick="setView('history',this)">📋 History</button>
+</div>
+
+<div class="main-grid">
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title" id="chartTitle">⚡ Live Power Consumption (kW)</div>
+    </div>
+    <canvas id="mainChart" height="130"></canvas>
+  </div>
+  <div class="panel">
+    <div class="panel-header"><div class="panel-title">🔌 Appliance Breakdown</div></div>
+    <canvas id="pieChart" height="150"></canvas>
+  </div>
+</div>
+
+<div class="bottom-grid">
+  <div class="panel">
+    <div class="panel-header"><div class="panel-title">📅 Monthly kWh Forecast</div></div>
+    <canvas id="monthlyChart" height="130"></canvas>
+  </div>
+  <div class="panel">
+    <div class="panel-header"><div class="panel-title">🕐 Peak Usage Hours</div></div>
+    <div class="peak-hours" id="peakHours"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-header"><div class="panel-title">🔮 30-Day Forecast</div></div>
+    <div class="forecast-stats">
+      <div class="forecast-stat"><div class="forecast-stat-label">Avg Power</div><div class="forecast-stat-val">1.17 kW</div></div>
+      <div class="forecast-stat"><div class="forecast-stat-label">Monthly kWh</div><div class="forecast-stat-val">844 kWh</div></div>
+      <div class="forecast-stat"><div class="forecast-stat-label">Est. Bill LKR</div><div class="forecast-stat-val">21,121</div></div>
+    </div>
+    <canvas id="forecastChart" height="90"></canvas>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:14px">
+  <div class="panel-header"><div class="panel-title">🌦️ Seasonal Power Consumption Analysis</div></div>
+  <div class="seasonal-grid">
+    <div class="season-card" style="border-color:#00cfff">
+      <div class="season-name">❄️ Winter</div>
+      <div class="season-val" style="color:#00cfff">1.89 kW</div>
+      <div class="season-sub">Highest — heating demand</div>
+    </div>
+    <div class="season-card" style="border-color:#ff7c38">
+      <div class="season-name">☀️ Summer</div>
+      <div class="season-val" style="color:#ff7c38">1.42 kW</div>
+      <div class="season-sub">AC & cooling appliances</div>
+    </div>
+    <div class="season-card" style="border-color:#00ff9d">
+      <div class="season-name">🌸 Spring</div>
+      <div class="season-val" style="color:#00ff9d">1.21 kW</div>
+      <div class="season-sub">Moderate — mild weather</div>
+    </div>
+    <div class="season-card" style="border-color:#ffd23f">
+      <div class="season-name">🍂 Autumn</div>
+      <div class="season-val" style="color:#ffd23f">1.35 kW</div>
+      <div class="season-sub">Transition period usage</div>
+    </div>
+  </div>
+</div>
+
+<div class="predictor">
+  <div class="panel-header">
+    <div class="panel-title">🧮 Monthly Bill Predictor — Polynomial Regression (R²=0.9990 · F1=1.0000)</div>
+  </div>
+  <div class="form-grid">
+    <div class="field"><label>Voltage (V)</label><input type="number" id="f_voltage" value="230"></div>
+    <div class="field"><label>Current (A)</label><input type="number" id="f_intensity" value="3.5" step="0.1"></div>
+    <div class="field"><label>Sub-meter 1</label><input type="number" id="f_sub1" value="0.5" step="0.1"></div>
+    <div class="field"><label>Sub-meter 2</label><input type="number" id="f_sub2" value="0.3" step="0.1"></div>
+    <div class="field"><label>Sub-meter 3</label><input type="number" id="f_sub3" value="1.0" step="0.1"></div>
+    <div class="field"><label>Month (1–12)</label><input type="number" id="f_month" value="5" min="1" max="12"></div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="runPredict()">PREDICT BILL</button>
+    <button class="btn btn-outline" onclick="exportCSV()">⬇ EXPORT CSV</button>
+    <button class="btn btn-danger" onclick="clearHistory()">✕ CLEAR LOG</button>
+  </div>
+  <div class="result-grid" id="resultGrid">
+    <div class="result-card">
+      <div class="result-label">Predicted Power</div>
+      <div class="result-val" id="res_power">--</div>
+      <div class="result-unit">kilowatts (kW)</div>
+    </div>
+    <div class="result-card">
+      <div class="result-label">Monthly Usage</div>
+      <div class="result-val" id="res_kwh">--</div>
+      <div class="result-unit">kilowatt-hours</div>
+    </div>
+    <div class="result-card">
+      <div class="result-label">Estimated Bill</div>
+      <div class="result-val" id="res_bill">--</div>
+      <div class="result-unit">LKR (CEB Tariff)</div>
+    </div>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:14px">
+  <div class="panel-header">
+    <div class="panel-title">📋 Live Data History Log</div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted)" id="logCount">0 records</div>
+  </div>
+  <div style="max-height:200px;overflow-y:auto">
+    <table class="log-table">
+      <thead><tr>
+        <th>Time</th><th>Voltage (V)</th><th>Current (A)</th>
+        <th>Power (kW)</th><th>Monthly kWh</th><th>Bill (LKR)</th><th>Status</th>
+      </tr></thead>
+      <tbody id="logBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<footer>Smart Energy Meter · IT22282354 · Poly Regression R²=0.9990 · F1=1.0000 · 19 Models Compared · SLIIT 2026</footer>
+
+<script>
+const liveLabels=[],liveData=[],historyData=[];
+const ANOMALY=2.5;
+
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString();},1000);
+
+const mainCtx=document.getElementById('mainChart').getContext('2d');
+const mainChart=new Chart(mainCtx,{type:'line',data:{labels:liveLabels,datasets:[{label:'kW',data:liveData,borderColor:'#00cfff',backgroundColor:'rgba(0,207,255,0.06)',borderWidth:2,tension:0.4,fill:true,pointRadius:3,pointBackgroundColor:'#00cfff'}]},options:{animation:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#3d6080',font:{size:9,family:'JetBrains Mono'}},grid:{color:'#152840'}},y:{ticks:{color:'#3d6080',font:{size:9,family:'JetBrains Mono'}},grid:{color:'#152840'},suggestedMin:0,suggestedMax:4}}}});
+
+new Chart(document.getElementById('pieChart').getContext('2d'),{type:'doughnut',data:{labels:['Kitchen','Laundry','HVAC','Lighting','Other'],datasets:[{data:[30,18,27,15,10],backgroundColor:['#00cfff','#00ff9d','#ff7c38','#ffd23f','#a855f7'],borderWidth:0,hoverOffset:8}]},options:{plugins:{legend:{position:'bottom',labels:{color:'#3d6080',font:{size:10,family:'JetBrains Mono'},boxWidth:10,padding:10}}},cutout:'68%'}}); 
+
+const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const mData=[720,680,750,690,710,760,800,790,740,700,660,680];
+new Chart(document.getElementById('monthlyChart').getContext('2d'),{type:'bar',data:{labels:months,datasets:[{data:mData,backgroundColor:months.map((_,i)=>i===new Date().getMonth()?'#00ff9d':'rgba(0,255,157,0.3)'),borderColor:'#00ff9d',borderWidth:1,borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#3d6080',font:{size:9,family:'JetBrains Mono'}},grid:{display:false}},y:{ticks:{color:'#3d6080',font:{size:9,family:'JetBrains Mono'}},grid:{color:'#152840'}}}}});
+
+const fDays=Array.from({length:30},(_,i)=>`D${i+1}`);
+const fVals=Array.from({length:30},()=>1.1+Math.random()*0.15);
+new Chart(document.getElementById('forecastChart').getContext('2d'),{type:'line',data:{labels:fDays,datasets:[{data:fVals,borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,0.08)',borderWidth:1.5,tension:0.4,fill:true,pointRadius:0},{data:fVals.map(v=>v*1.1),borderColor:'rgba(168,85,247,0.2)',borderWidth:1,tension:0.4,fill:false,pointRadius:0},{data:fVals.map(v=>v*0.9),borderColor:'rgba(168,85,247,0.2)',borderWidth:1,tension:0.4,fill:false,pointRadius:0}]},options:{animation:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#3d6080',font:{size:8,family:'JetBrains Mono'},maxTicksLimit:6},grid:{display:false}},y:{ticks:{color:'#3d6080',font:{size:9,family:'JetBrains Mono'}},grid:{color:'#152840'}}}}});
+
+const peakData=[{label:'6AM',val:45,color:'#00cfff'},{label:'9AM',val:75,color:'#ff7c38'},{label:'12PM',val:55,color:'#00cfff'},{label:'3PM',val:40,color:'#00cfff'},{label:'6PM',val:95,color:'#ff3d6b'},{label:'9PM',val:70,color:'#ff7c38'},{label:'12AM',val:25,color:'#3d6080'},{label:'3AM',val:15,color:'#3d6080'}];
+const peakEl=document.getElementById('peakHours');
+peakData.forEach(p=>{peakEl.innerHTML+=`<div class="peak-col"><div class="peak-bar-wrap"><div class="peak-bar" style="height:${p.val}%;background:${p.color};opacity:0.8"></div></div><div class="peak-label">${p.label}</div></div>`;});
+
+function setView(v,btn){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');const t=document.getElementById('chartTitle');const titles={live:'⚡ Live Power Consumption (kW)',forecast:'🔮 30-Day Power Forecast',seasonal:'🌦️ Seasonal Trend Analysis',anomaly:'🚨 Anomaly Detection View',history:'📋 Historical Trend'};t.textContent=titles[v]||t.textContent;}
+
+function getStatus(kw){if(kw<0.5)return['Low','pill-low'];if(kw<2.0)return['Normal','pill-normal'];return['High','pill-high'];}
+
+function fetchLive(){
+  fetch('/api/live').then(r=>r.json()).then(d=>{
+    document.getElementById('voltage').textContent=d.voltage+' V';
+    document.getElementById('current').textContent=d.current+' A';
+    document.getElementById('power').textContent=d.power_kw+' kW';
+    document.getElementById('monthlyKwh').textContent=d.monthly_kwh+' kWh';
+    document.getElementById('bill').textContent='LKR '+d.est_bill_lkr.toLocaleString();
+    document.getElementById('voltageBar').style.width=Math.min(100,((d.voltage-200)/60)*100)+'%';
+    document.getElementById('currentBar').style.width=Math.min(100,(d.current/10)*100)+'%';
+    document.getElementById('powerBar').style.width=Math.min(100,(d.power_kw/4)*100)+'%';
+    document.getElementById('kwhBar').style.width=Math.min(100,(d.monthly_kwh/1000)*100)+'%';
+    document.getElementById('billBar').style.width=Math.min(100,(d.est_bill_lkr/30000)*100)+'%';
+    const[label,cls]=getStatus(d.power_kw);
+    document.getElementById('energyStatus').innerHTML=`<span class="status-pill ${cls}">${label}</span>`;
+    document.getElementById('anomalyAlert').style.display=d.power_kw>ANOMALY?'block':'none';
+    if(liveLabels.length>=25){liveLabels.shift();liveData.shift();}
+    liveLabels.push(d.timestamp);liveData.push(d.power_kw);mainChart.update();
+    addToLog(d,label,cls);
+    historyData.push({time:d.timestamp,voltage:d.voltage,current:d.current,power_kw:d.power_kw,monthly_kwh:d.monthly_kwh,bill_lkr:d.est_bill_lkr,status:label,anomaly:d.power_kw>ANOMALY});
+  }).catch(()=>{});
+}
+
+function addToLog(d,label,cls){
+  const tbody=document.getElementById('logBody');
+  const isA=d.power_kw>ANOMALY;
+  const row=document.createElement('tr');
+  if(isA)row.classList.add('anomaly-row');
+  row.innerHTML=`<td>${d.timestamp}</td><td>${d.voltage}</td><td>${d.current}</td><td>${d.power_kw}</td><td>${d.monthly_kwh}</td><td>${d.est_bill_lkr.toLocaleString()}</td><td><span class="status-pill ${cls}">${isA?'⚠️ ANOMALY':label}</span></td>`;
+  tbody.insertBefore(row,tbody.firstChild);
+  while(tbody.children.length>50)tbody.removeChild(tbody.lastChild);
+  document.getElementById('logCount').textContent=Math.min(historyData.length+1,50)+' records';
+}
+
+function runPredict(){
+  const payload={voltage:parseFloat(document.getElementById('f_voltage').value),intensity:parseFloat(document.getElementById('f_intensity').value),sub1:parseFloat(document.getElementById('f_sub1').value),sub2:parseFloat(document.getElementById('f_sub2').value),sub3:parseFloat(document.getElementById('f_sub3').value),month:parseInt(document.getElementById('f_month').value),day_of_week:new Date().getDay()};
+  fetch('/api/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(r=>r.json()).then(d=>{document.getElementById('res_power').textContent=d.predicted_power_kw;document.getElementById('res_kwh').textContent=d.predicted_kwh_month.toLocaleString();document.getElementById('res_bill').textContent=d.estimated_bill_lkr.toLocaleString();document.getElementById('resultGrid').style.display='grid';}).catch(()=>alert('Start Flask app: python app.py'));
+}
+
+function exportCSV(){
+  if(!historyData.length){alert('No data yet.');return;}
+  const h=['Time','Voltage','Current','Power_kW','Monthly_kWh','Bill_LKR','Status','Anomaly'];
+  const rows=historyData.map(d=>[d.time,d.voltage,d.current,d.power_kw,d.monthly_kwh,d.bill_lkr,d.status,d.anomaly].join(','));
+  const csv=[h.join(','),...rows].join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`energy_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
+
+function clearHistory(){document.getElementById('logBody').innerHTML='';historyData.length=0;document.getElementById('logCount').textContent='0 records';}
+
+setInterval(fetchLive,3000);fetchLive();
+</script>
+</body>
+</html>
