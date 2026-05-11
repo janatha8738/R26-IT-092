@@ -98,7 +98,7 @@
     <div class="brand-icon">⚡</div>
     <div class="brand-text">
       <h1>Smart Energy Monitor</h1>
-      <p>IT22282354 · Load Forecasting & Bill Prediction · Poly Reg R²=0.9990</p>
+      <p>IT22282354 · Load Forecasting & Bill Prediction · MLP R²=0.8900</p>
     </div>
   </div>
   <div class="header-right">
@@ -157,19 +157,11 @@
     </div>
     <canvas id="mainChart" height="130"></canvas>
   </div>
-  <div class="panel">
-    <div class="panel-header"><div class="panel-title">🔌 Appliance Breakdown</div></div>
-    <canvas id="pieChart" height="150"></canvas>
-  </div>
 </div>
 
 <div class="bottom-grid">
   <div class="panel">
-    <div class="panel-header"><div class="panel-title">📅 Monthly kWh Forecast</div></div>
-    <canvas id="monthlyChart" height="130"></canvas>
-  </div>
-  <div class="panel">
-    <div class="panel-header"><div class="panel-title">🕐 Peak Usage Hours</div></div>
+    <div class="panel-header"><div class="panel-title"> Peak Usage Hours</div></div>
     <div class="peak-hours" id="peakHours"></div>
   </div>
   <div class="panel">
@@ -180,6 +172,14 @@
       <div class="forecast-stat"><div class="forecast-stat-label">Est. Bill LKR</div><div class="forecast-stat-val">21,121</div></div>
     </div>
     <canvas id="forecastChart" height="90"></canvas>
+  </div>
+  <div class="panel">
+    <div class="panel-header"><div class="panel-title">🌡️ Seasonal Analysis</div></div>
+    <div class="forecast-stats">
+      <div class="forecast-stat"><div class="forecast-stat-label">Winter</div><div class="forecast-stat-val" style="color:#00cfff">1.89 kW</div></div>
+      <div class="forecast-stat"><div class="forecast-stat-label">Summer</div><div class="forecast-stat-val" style="color:#ff7c38">1.42 kW</div></div>
+      <div class="forecast-stat"><div class="forecast-stat-label">Spring</div><div class="forecast-stat-val" style="color:#00ff9d">1.21 kW</div></div>
+    </div>
   </div>
 </div>
 
@@ -209,42 +209,6 @@
   </div>
 </div>
 
-<div class="predictor">
-  <div class="panel-header">
-    <div class="panel-title">🧮 Monthly Bill Predictor — Polynomial Regression (R²=0.9990 · F1=1.0000)</div>
-  </div>
-  <div class="form-grid">
-    <div class="field"><label>Voltage (V)</label><input type="number" id="f_voltage" value="230"></div>
-    <div class="field"><label>Current (A)</label><input type="number" id="f_intensity" value="3.5" step="0.1"></div>
-    <div class="field"><label>Sub-meter 1</label><input type="number" id="f_sub1" value="0.5" step="0.1"></div>
-    <div class="field"><label>Sub-meter 2</label><input type="number" id="f_sub2" value="0.3" step="0.1"></div>
-    <div class="field"><label>Sub-meter 3</label><input type="number" id="f_sub3" value="1.0" step="0.1"></div>
-    <div class="field"><label>Month (1–12)</label><input type="number" id="f_month" value="5" min="1" max="12"></div>
-  </div>
-  <div class="btn-row">
-    <button class="btn btn-primary" onclick="runPredict()">PREDICT BILL</button>
-    <button class="btn btn-outline" onclick="exportCSV()">⬇ EXPORT CSV</button>
-    <button class="btn btn-danger" onclick="clearHistory()">✕ CLEAR LOG</button>
-  </div>
-  <div class="result-grid" id="resultGrid">
-    <div class="result-card">
-      <div class="result-label">Predicted Power</div>
-      <div class="result-val" id="res_power">--</div>
-      <div class="result-unit">kilowatts (kW)</div>
-    </div>
-    <div class="result-card">
-      <div class="result-label">Monthly Usage</div>
-      <div class="result-val" id="res_kwh">--</div>
-      <div class="result-unit">kilowatt-hours</div>
-    </div>
-    <div class="result-card">
-      <div class="result-label">Estimated Bill</div>
-      <div class="result-val" id="res_bill">--</div>
-      <div class="result-unit">LKR (CEB Tariff)</div>
-    </div>
-  </div>
-</div>
-
 <div class="panel" style="margin-bottom:14px">
   <div class="panel-header">
     <div class="panel-title">📋 Live Data History Log</div>
@@ -261,7 +225,7 @@
   </div>
 </div>
 
-<footer>Smart Energy Meter · IT22282354 · Poly Regression R²=0.9990 · F1=1.0000 · 19 Models Compared · SLIIT 2026</footer>
+<footer>Smart Energy Meter · IT22282354 · MLP R²=0.8900 · F1=0.8467 · 10 Models Compared · SLIIT 2026</footer>
 
 <script>
 const liveLabels=[],liveData=[],historyData=[];
@@ -271,12 +235,6 @@ setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocal
 
 const mainCtx=document.getElementById('mainChart').getContext('2d');
 const mainChart=new Chart(mainCtx,{type:'line',data:{labels:liveLabels,datasets:[{label:'kW',data:liveData,borderColor:'#00cfff',backgroundColor:'rgba(0,207,255,0.06)',borderWidth:2,tension:0.4,fill:true,pointRadius:3,pointBackgroundColor:'#00cfff'}]},options:{animation:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#3d6080',font:{size:9,family:'JetBrains Mono'}},grid:{color:'#152840'}},y:{ticks:{color:'#3d6080',font:{size:9,family:'JetBrains Mono'}},grid:{color:'#152840'},suggestedMin:0,suggestedMax:4}}}});
-
-new Chart(document.getElementById('pieChart').getContext('2d'),{type:'doughnut',data:{labels:['Kitchen','Laundry','HVAC','Lighting','Other'],datasets:[{data:[30,18,27,15,10],backgroundColor:['#00cfff','#00ff9d','#ff7c38','#ffd23f','#a855f7'],borderWidth:0,hoverOffset:8}]},options:{plugins:{legend:{position:'bottom',labels:{color:'#3d6080',font:{size:10,family:'JetBrains Mono'},boxWidth:10,padding:10}}},cutout:'68%'}}); 
-
-const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const mData=[720,680,750,690,710,760,800,790,740,700,660,680];
-new Chart(document.getElementById('monthlyChart').getContext('2d'),{type:'bar',data:{labels:months,datasets:[{data:mData,backgroundColor:months.map((_,i)=>i===new Date().getMonth()?'#00ff9d':'rgba(0,255,157,0.3)'),borderColor:'#00ff9d',borderWidth:1,borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#3d6080',font:{size:9,family:'JetBrains Mono'}},grid:{display:false}},y:{ticks:{color:'#3d6080',font:{size:9,family:'JetBrains Mono'}},grid:{color:'#152840'}}}}});
 
 const fDays=Array.from({length:30},(_,i)=>`D${i+1}`);
 const fVals=Array.from({length:30},()=>1.1+Math.random()*0.15);
@@ -322,23 +280,6 @@ function addToLog(d,label,cls){
   while(tbody.children.length>50)tbody.removeChild(tbody.lastChild);
   document.getElementById('logCount').textContent=Math.min(historyData.length+1,50)+' records';
 }
-
-function runPredict(){
-  const payload={voltage:parseFloat(document.getElementById('f_voltage').value),intensity:parseFloat(document.getElementById('f_intensity').value),sub1:parseFloat(document.getElementById('f_sub1').value),sub2:parseFloat(document.getElementById('f_sub2').value),sub3:parseFloat(document.getElementById('f_sub3').value),month:parseInt(document.getElementById('f_month').value),day_of_week:new Date().getDay()};
-  fetch('/api/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(r=>r.json()).then(d=>{document.getElementById('res_power').textContent=d.predicted_power_kw;document.getElementById('res_kwh').textContent=d.predicted_kwh_month.toLocaleString();document.getElementById('res_bill').textContent=d.estimated_bill_lkr.toLocaleString();document.getElementById('resultGrid').style.display='grid';}).catch(()=>alert('Start Flask app: python app.py'));
-}
-
-function exportCSV(){
-  if(!historyData.length){alert('No data yet.');return;}
-  const h=['Time','Voltage','Current','Power_kW','Monthly_kWh','Bill_LKR','Status','Anomaly'];
-  const rows=historyData.map(d=>[d.time,d.voltage,d.current,d.power_kw,d.monthly_kwh,d.bill_lkr,d.status,d.anomaly].join(','));
-  const csv=[h.join(','),...rows].join('\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download=`energy_${new Date().toISOString().slice(0,10)}.csv`;a.click();
-}
-
-function clearHistory(){document.getElementById('logBody').innerHTML='';historyData.length=0;document.getElementById('logCount').textContent='0 records';}
 
 setInterval(fetchLive,3000);fetchLive();
 </script>

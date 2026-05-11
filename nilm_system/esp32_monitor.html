@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ESP32 Power Monitor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo svg { color: #58a6ff; }
+
+  h1 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: #e6edf3;
+  }
+
+  .subtitle {
+    font-size: 0.8rem;
+    color: #8b949e;
+    margin-top: 2px;
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    background: #161b22;
+    border: 1px solid #30363d;
+    color: #8b949e;
+    transition: all 0.3s;
+  }
+
+  .status-pill.connected {
+    border-color: #238636;
+    color: #3fb950;
+    background: #0d2318;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #8b949e;
+    transition: background 0.3s;
+  }
+
+  .status-pill.connected .status-dot {
+    background: #3fb950;
+    box-shadow: 0 0 6px #3fb950aa;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+
+  .card:hover { border-color: #58a6ff44; }
+
+  .card-accent {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .card.voltage .card-accent { background: #58a6ff; }
+  .card.current .card-accent { background: #f0883e; }
+  .card.power   .card-accent { background: #3fb950; }
+
+  .card-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #8b949e;
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .card-label svg { opacity: 0.7; }
+
+  .card-value {
+    font-size: 2.4rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .card.voltage .card-value { color: #58a6ff; }
+  .card.current .card-value { color: #f0883e; }
+  .card.power   .card-value { color: #3fb950; }
+
+  .card-unit {
+    font-size: 1rem;
+    font-weight: 400;
+    opacity: 0.6;
+    margin-left: 3px;
+  }
+
+  .card-min-max {
+    margin-top: 0.75rem;
+    font-size: 0.72rem;
+    color: #8b949e;
+    display: flex;
+    gap: 10px;
+  }
+
+  .chart-section {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .chart-title {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #c9d1d9;
+  }
+
+  .legend {
+    display: flex;
+    gap: 14px;
+    font-size: 0.72rem;
+    color: #8b949e;
+  }
+
+  .legend-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  canvas {
+    width: 100%;
+    height: 200px;
+    display: block;
+  }
+
+  .controls {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1px solid #30363d;
+    background: #21262d;
+    color: #c9d1d9;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  button:hover { background: #30363d; border-color: #58a6ff66; color: #e6edf3; }
+  button:active { transform: scale(0.97); }
+
+  button.primary {
+    background: #1f6feb;
+    border-color: #388bfd;
+    color: #fff;
+  }
+
+  button.primary:hover { background: #388bfd; }
+  button.danger { border-color: #da3633; color: #f85149; }
+  button.danger:hover { background: #2d1210; }
+
+  .log-section {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    max-height: 140px;
+    overflow-y: auto;
+    font-family: 'Cascadia Code', 'Courier New', monospace;
+    font-size: 0.72rem;
+    color: #8b949e;
+    margin-top: 1rem;
+  }
+
+  .log-line { line-height: 1.8; }
+  .log-line.err { color: #f85149; }
+  .log-line.ok  { color: #3fb950; }
+
+  .no-serial-warning {
+    display: none;
+    background: #2d1210;
+    border: 1px solid #da363388;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 0.82rem;
+    color: #f85149;
+    margin-bottom: 1rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+    </svg>
+    <div>
+      <h1>ESP32 Power Monitor</h1>
+      <div class="subtitle">Real-time Voltage &amp; Current via Serial</div>
+    </div>
+  </div>
+  <div id="statusPill" class="status-pill">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Disconnected</span>
+  </div>
+</header>
+
+<div class="no-serial-warning" id="noSerialWarning">
+  ⚠️ Web Serial API not supported. Please use <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> (desktop, v89+).
+</div>
+
+<div class="cards">
+  <div class="card voltage">
+    <div class="card-accent"></div>
+    <div class="card-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg>
+      Voltage
+    </div>
+    <div class="card-value" id="voltageVal">—<span class="card-unit">V</span></div>
+    <div class="card-min-max" id="voltageRange">Min: — &nbsp; Max: —</div>
+  </div>
+
+  <div class="card current">
+    <div class="card-accent"></div>
+    <div class="card-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      Current
+    </div>
+    <div class="card-value" id="currentVal">—<span class="card-unit">A</span></div>
+    <div class="card-min-max" id="currentRange">Min: — &nbsp; Max: —</div>
+  </div>
+
+  <div class="card power">
+    <div class="card-accent"></div>
+    <div class="card-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Power
+    </div>
+    <div class="card-value" id="powerVal">—<span class="card-unit">W</span></div>
+    <div class="card-min-max" id="powerRange">Min: — &nbsp; Max: —</div>
+  </div>
+</div>
+
+<div class="chart-section">
+  <div class="chart-header">
+    <span class="chart-title">Live Readings (last 60 samples)</span>
+    <div class="legend">
+      <span><span class="legend-dot" style="background:#58a6ff"></span>Voltage (V)</span>
+      <span><span class="legend-dot" style="background:#f0883e"></span>Current (A)</span>
+      <span><span class="legend-dot" style="background:#3fb950"></span>Power (W)</span>
+    </div>
+  </div>
+  <canvas id="chart"></canvas>
+</div>
+
+<div class="controls">
+  <button class="primary" id="connectBtn" onclick="connectSerial()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    Connect Serial
+  </button>
+  <button id="disconnectBtn" onclick="disconnectSerial()" disabled>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    Disconnect
+  </button>
+  <button onclick="clearData()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+    Clear
+  </button>
+  <button onclick="exportCSV()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Export CSV
+  </button>
+</div>
+
+<div class="log-section" id="log"></div>
+
+<script>
+const MAX_POINTS = 60;
+let port = null, reader = null, readLoop = null;
+let history = { v: [], a: [], w: [] };
+let minMax = {
+  v: [Infinity, -Infinity],
+  a: [Infinity, -Infinity],
+  w: [Infinity, -Infinity]
+};
+let csvRows = [['timestamp','voltage_V','current_A','power_W']];
+
+if (!('serial' in navigator)) {
+  document.getElementById('noSerialWarning').style.display = 'block';
+  document.getElementById('connectBtn').disabled = true;
+}
+
+function log(msg, type = '') {
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  line.className = 'log-line ' + type;
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function setConnected(state) {
+  const pill = document.getElementById('statusPill');
+  const dot  = document.getElementById('statusDot');
+  const txt  = document.getElementById('statusText');
+  pill.className = 'status-pill' + (state ? ' connected' : '');
+  txt.textContent = state ? 'Connected' : 'Disconnected';
+  document.getElementById('connectBtn').disabled = state;
+  document.getElementById('disconnectBtn').disabled = !state;
+}
+
+async function connectSerial() {
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200 });
+    setConnected(true);
+    log('Serial port opened at 115200 baud.', 'ok');
+    readLoop = readSerial();
+  } catch (e) {
+    log('Connection failed: ' + e.message, 'err');
+  }
+}
+
+async function disconnectSerial() {
+  try {
+    if (reader) { await reader.cancel(); reader = null; }
+    if (port)   { await port.close();   port = null;   }
+    setConnected(false);
+    log('Disconnected.', '');
+  } catch(e) {
+    log('Disconnect error: ' + e.message, 'err');
+  }
+}
+
+async function readSerial() {
+  const decoder = new TextDecoderStream();
+  port.readable.pipeTo(decoder.writable);
+  reader = decoder.readable.getReader();
+  let buffer = '';
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += value;
+      let lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const parts = trimmed.split(',');
+        if (parts.length === 3) {
+          const v = parseFloat(parts[0]);
+          const a = parseFloat(parts[1]);
+          const w = parseFloat(parts[2]);
+          if (!isNaN(v) && !isNaN(a) && !isNaN(w)) {
+            updateData(v, a, w);
+          } else {
+            log('Bad data: ' + trimmed, 'err');
+          }
+        }
+      }
+    }
+  } catch(e) {
+    if (port) log('Read error: ' + e.message, 'err');
+  }
+}
+
+function updateData(v, a, w) {
+  history.v.push(v); if (history.v.length > MAX_POINTS) history.v.shift();
+  history.a.push(a); if (history.a.length > MAX_POINTS) history.a.shift();
+  history.w.push(w); if (history.w.length > MAX_POINTS) history.w.shift();
+
+  minMax.v[0] = Math.min(minMax.v[0], v); minMax.v[1] = Math.max(minMax.v[1], v);
+  minMax.a[0] = Math.min(minMax.a[0], a); minMax.a[1] = Math.max(minMax.a[1], a);
+  minMax.w[0] = Math.min(minMax.w[0], w); minMax.w[1] = Math.max(minMax.w[1], w);
+
+  csvRows.push([new Date().toISOString(), v.toFixed(2), a.toFixed(3), w.toFixed(2)]);
+
+  document.getElementById('voltageVal').innerHTML = v.toFixed(2) + '<span class="card-unit">V</span>';
+  document.getElementById('currentVal').innerHTML = a.toFixed(3) + '<span class="card-unit">A</span>';
+  document.getElementById('powerVal').innerHTML   = w.toFixed(2) + '<span class="card-unit">W</span>';
+
+  document.getElementById('voltageRange').innerHTML = `Min: ${minMax.v[0].toFixed(2)}V &nbsp; Max: ${minMax.v[1].toFixed(2)}V`;
+  document.getElementById('currentRange').innerHTML = `Min: ${minMax.a[0].toFixed(3)}A &nbsp; Max: ${minMax.a[1].toFixed(3)}A`;
+  document.getElementById('powerRange').innerHTML   = `Min: ${minMax.w[0].toFixed(2)}W &nbsp; Max: ${minMax.w[1].toFixed(2)}W`;
+
+  drawChart();
+}
+
+function clearData() {
+  history = { v: [], a: [], w: [] };
+  minMax = { v: [Infinity,-Infinity], a: [Infinity,-Infinity], w: [Infinity,-Infinity] };
+  csvRows = [['timestamp','voltage_V','current_A','power_W']];
+  ['voltageVal','currentVal','powerVal'].forEach(id => {
+    const u = document.getElementById(id).querySelector('.card-unit').outerHTML;
+    document.getElementById(id).innerHTML = '—' + u;
+  });
+  ['voltageRange','currentRange','powerRange'].forEach(id => {
+    document.getElementById(id).innerHTML = 'Min: — &nbsp; Max: —';
+  });
+  drawChart();
+  log('Data cleared.');
+}
+
+function exportCSV() {
+  const blob = new Blob([csvRows.map(r => r.join(',')).join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'esp32_data_' + new Date().toISOString().slice(0,19).replace(/:/g,'-') + '.csv';
+  a.click();
+  log('CSV exported.');
+}
+
+// --- Canvas Chart ---
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+
+function drawChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width  = rect.width  * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  const PAD = { top: 10, right: 20, bottom: 20, left: 45 };
+  const cw = W - PAD.left - PAD.right;
+  const ch = H - PAD.top  - PAD.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const n = Math.max(history.v.length, history.a.length, history.w.length);
+  if (n === 0) {
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '13px Segoe UI, system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Connect ESP32 to see live data', W / 2, H / 2);
+    return;
+  }
+
+  // Draw grid
+  ctx.strokeStyle = '#21262d';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD.top + (ch / 4) * i;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cw, y); ctx.stroke();
+  }
+
+  function drawLine(data, color, min, max) {
+    if (data.length < 2) return;
+    const range = max - min || 1;
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
+    data.forEach((val, i) => {
+      const x = PAD.left + (i / (MAX_POINTS - 1)) * cw;
+      const y = PAD.top + ch - ((val - min) / range) * ch;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  }
+
+  // Normalize each line to its own range for visibility
+  const vMin = minMax.v[0] === Infinity ? 0 : minMax.v[0] - 0.5;
+  const vMax = minMax.v[1] === -Infinity ? 1 : minMax.v[1] + 0.5;
+  const aMin = minMax.a[0] === Infinity ? 0 : minMax.a[0] - 0.1;
+  const aMax = minMax.a[1] === -Infinity ? 1 : minMax.a[1] + 0.1;
+  const wMin = minMax.w[0] === Infinity ? 0 : minMax.w[0] - 0.5;
+  const wMax = minMax.w[1] === -Infinity ? 1 : minMax.w[1] + 0.5;
+
+  drawLine(history.v, '#58a6ff', vMin, vMax);
+  drawLine(history.a, '#f0883e', aMin, aMax);
+  drawLine(history.w, '#3fb950', wMin, wMax);
+
+  // Y-axis labels
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '10px Segoe UI, monospace';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const pct = 1 - i / 4;
+    const y = PAD.top + (ch / 4) * i + 3;
+    ctx.fillText((vMin + (vMax - vMin) * pct).toFixed(1), PAD.left - 6, y);
+  }
+}
+
+window.addEventListener('resize', drawChart);
+drawChart();
+</script>
+</body>
+</html>
