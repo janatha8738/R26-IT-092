@@ -437,13 +437,24 @@ class DataSimulator:
         for name, (max_pw, color, icon) in APPLIANCE_META.items():
             entry = loaded_models.get(name)
 
-            # In isolation mode zero everything except the selected appliance
+            # ── CHANGE 1: Keep running all appliances in the background.
+            # In isolation mode, non-isolated appliances are still predicted
+            # normally but flagged as 'isolated_hidden' so the frontend can
+            # dim them without the aggregate line jumping or layout popping.
             if self.isolated_appliance and name != self.isolated_appliance:
+                on, power = predict(name, entry, window) if entry else (False, 0.0)
                 state[name] = {
-                    'status': False, 'power': 0.0,
-                    'color': color,  'icon': icon,
-                    'model_type': entry['type'] if entry else 'missing'
+                    'status': on, 'power': power,
+                    'color': color, 'icon': icon,
+                    'model_type': entry['type'] if entry else 'missing',
+                    'isolated_hidden': True,   # frontend: dim, don't remove
                 }
+                # Still accumulate energy even when hidden
+                self.total_kwh[name] = round(
+                    self.total_kwh[name] + power / 60000, 4
+                )
+                self.on_timers[name] = self.on_timers[name] + 1 if on else 0
+                self.power_history[name].append(power)
                 continue
 
             if entry is None:
@@ -472,11 +483,17 @@ class DataSimulator:
             # Feed power into rolling history for fault classifier
             self.power_history[name].append(power)
 
+            # ── CHANGE 4: sync iso_on_timer from the live on_timers counter
+            if self.isolated_appliance == name:
+                self.iso_on_timer = self.on_timers[name]
+
         self.cursor      += 1
         self.sim_minutes += 1
 
-        # ── Run fault classifier every 5 steps ────────────────
-        if self.sim_minutes % 5 == 0:
+        # ── CHANGE 3: Run fault classifier every step in isolation,
+        # every 5 steps in normal mode — keeps demo predictions live.
+        fault_interval = 1 if self.isolated_appliance else 5
+        if self.sim_minutes % fault_interval == 0:
             target = (self.isolated_appliance
                       if self.isolated_appliance
                       else None)
@@ -670,13 +687,12 @@ def api_isolate():
 
     sim.isolated_appliance = appliance
     sim.iso_faults.clear()
-    sim.iso_on_timer = 0
+    sim.iso_on_timer = sim.on_timers.get(appliance, 0) if appliance else 0
     sim.iso_running  = appliance is not None
 
-    # Clear power history for fresh fault window
-    if appliance:
-        sim.power_history[appliance].clear()
-        sim.fault_predictions.pop(appliance, None)
+    # ── CHANGE 2: Do NOT clear power_history or fault_predictions.
+    # Keeping warm history means the fault classifier has signal immediately
+    # on isolation start — no cold-start delay visible in the demo.
 
     return jsonify({
         'ok':                 True,
